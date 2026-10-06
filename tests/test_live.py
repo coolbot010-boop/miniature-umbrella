@@ -50,7 +50,7 @@ class SignatureTest(unittest.TestCase):
         c = live.Bitvavo("k", "secret")
         captured = {}
 
-        def fake_urlopen(req, timeout):
+        def fake_urlopen(req, timeout, context=None):
             captured["req"] = req
             raise live.urllib.error.URLError("stop")
 

@@ -60,7 +60,7 @@ class Bitvavo:
                 "User-Agent": "trade-bot",
             })
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=bot.SSL_CONTEXT) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             raise RuntimeError(f"Bitvavo {e.code}: {e.read().decode(errors='replace')}") from None

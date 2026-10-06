@@ -19,7 +19,9 @@ import csv
 import json
 import os
 import sys
+import ssl
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -28,6 +30,14 @@ from datetime import datetime, timezone
 import config
 
 API = "https://api.bitvavo.com/v2"
+
+# Gebruik de certificatenlijst van 'certifi' als die geïnstalleerd is
+# (pip install certifi). Helpt als Windows een verouderde lijst heeft.
+try:
+    import certifi
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    SSL_CONTEXT = ssl.create_default_context()
 INTERVAL_MS = {
     "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000,
     "1h": 3_600_000, "2h": 7_200_000, "4h": 14_400_000, "6h": 21_600_000,
@@ -42,7 +52,7 @@ def api_get(path, params=None):
     if params:
         url += "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": "paper-bot"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=SSL_CONTEXT) as resp:
         return json.loads(resp.read())
 
 
@@ -324,6 +334,26 @@ def main():
         commands[cmd](*[int(a) for a in sys.argv[2:3]])
     except KeyboardInterrupt:
         print("\nGestopt. Stand is opgeslagen.")
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, ssl.SSLCertVerificationError):
+            print(SSL_HELP.format(fout=e.reason.verify_message, tijd=datetime.now().strftime("%d-%m-%Y %H:%M")))
+        else:
+            print(f"Geen verbinding met Bitvavo: {e.reason}. Check je internet en probeer opnieuw.")
+        sys.exit(1)
+
+
+SSL_HELP = """
+Je computer vertrouwt de beveiligde verbinding met Bitvavo niet ({fout}).
+Dit ligt niet aan de bot of je API-key. Probeer, in deze volgorde:
+
+1. Klopt de datum en tijd van je computer? Volgens je pc is het nu: {tijd}
+   Zo niet: Instellingen > Tijd en taal > 'Tijd automatisch instellen' aan,
+   en klik op 'Nu synchroniseren'.
+2. Installeer een actuele certificatenlijst:   pip install certifi
+   en probeer het daarna opnieuw.
+3. Heb je een virusscanner zoals Avast, AVG, Kaspersky of ESET? Zet daarin
+   'HTTPS-scannen' / 'webschild' uit, of voeg Python toe als uitzondering.
+"""
 
 
 if __name__ == "__main__":
