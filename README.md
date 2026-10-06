@@ -38,7 +38,8 @@ Ingebouwde beveiligingen (in `config.py`):
 | Instelling | Standaard | Wat het doet |
 |---|---|---|
 | `LIVE_BUDGET_EUR` | €50 | De bot gebruikt nooit meer van je euro's dan dit |
-| `LIVE_MAX_LOSS_EUR` | €15 | Is de bot €15 kwijt, dan stopt hij helemaal |
+| `LIVE_MAX_LOSS_EUR` | €25 | Is de bot €25 kwijt (50%), dan verkoopt hij alles en stopt |
+| `LIVE_PROFIT_TARGET_EUR` | €50 | Heeft hij €50 winst (€100 totaal), dan verkoopt hij alles en stopt |
 | `LIVE_MAX_TRADES_PER_DAY` | 10 | Voorkomt dat een fout je saldo opvreet met kosten |
 
 - De bot verkoopt **alleen munten die hij zelf gekocht heeft**. Crypto die je al had, blijft staan.

@@ -148,11 +148,12 @@ def cmd_live():
     decimals = quantity_decimals(config.MARKET)
     p, day, trades_today = load_state()
     floor = config.LIVE_BUDGET_EUR - config.LIVE_MAX_LOSS_EUR
+    target = config.LIVE_BUDGET_EUR + config.LIVE_PROFIT_TARGET_EUR
 
     print("=" * 60)
     print("LET OP: ECHT GELD")
     print(f"Markt {config.MARKET}, budget €{config.LIVE_BUDGET_EUR:.2f}, "
-          f"stopt bij waarde < €{floor:.2f}, max {config.LIVE_MAX_TRADES_PER_DAY} orders/dag")
+          f"stopt bij waarde < €{floor:.2f} of > €{target:.2f}, max {config.LIVE_MAX_TRADES_PER_DAY} orders/dag")
     print(f"Boekhouding: €{p.eur:.2f} + {p.coins:.8f} {base}")
     print("=" * 60)
     if input("Typ 'ja' om te starten: ").strip().lower() != "ja":
@@ -171,14 +172,18 @@ def cmd_live():
             bid, ask = bot.get_book(config.MARKET)
             value = p.value(bid)
 
-            if value < floor:
-                print(f"[{bot.now()}] Waarde €{value:.2f} onder verliesgrens €{floor:.2f}. Bot stopt.")
-                if p.in_position:
-                    print("Je hebt nog munten. Verkoop die zelf in de app als je wilt.")
-                return
+            # Verliesgrens of winstdoel: alles verkopen en stoppen
+            stop = None
+            if value <= floor:
+                stop = f"verliesgrens bereikt (waarde €{value:.2f})"
+            elif value >= target:
+                stop = f"winstdoel bereikt (waarde €{value:.2f})"
 
-            action, reason = bot.decide(closes, p, bid if p.in_position else ask)
-            if action and trades_today >= config.LIVE_MAX_TRADES_PER_DAY:
+            if stop:
+                action, reason = ("sell" if p.in_position else None), stop
+            else:
+                action, reason = bot.decide(closes, p, bid if p.in_position else ask)
+            if action and not stop and trades_today >= config.LIVE_MAX_TRADES_PER_DAY:
                 print(f"[{bot.now()}] {action} overgeslagen: daglimiet bereikt")
                 action = None
 
@@ -207,6 +212,9 @@ def cmd_live():
 
             save_state(p, day, trades_today)
             print(f"[{bot.now()}] koers €{(bid + ask) / 2:.2f} | waarde €{p.value(bid):.2f} | {reason}")
+            if stop:
+                print(f"[{bot.now()}] {stop}. Alles staat weer in euro's. Bot stopt.")
+                return
         except KeyboardInterrupt:
             raise
         except RuntimeError as e:  # fout van de beurs bij een order: niet doorgaan

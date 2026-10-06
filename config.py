@@ -36,8 +36,11 @@ TRADES_FILE = "trades.csv"
 # Harde limiet: de bot gebruikt nooit meer dan dit bedrag van je echte euro's.
 LIVE_BUDGET_EUR = 50.0
 
-# Stop helemaal als de bot dit bedrag kwijt is (waarde < budget - dit).
-LIVE_MAX_LOSS_EUR = 15.0
+# Verliesgrens: is de bot dit bedrag kwijt, dan verkoopt hij alles en stopt.
+LIVE_MAX_LOSS_EUR = 25.0
+
+# Winstdoel: heeft de bot dit bedrag verdiend, dan verkoopt hij alles en stopt.
+LIVE_PROFIT_TARGET_EUR = 50.0
 
 # Beschermt tegen een bot die door een fout blijft kopen/verkopen.
 LIVE_MAX_TRADES_PER_DAY = 10

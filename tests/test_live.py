@@ -147,6 +147,29 @@ class LiveLoopTest(unittest.TestCase):
         self.run_loop(ex, [100.0] * 40, 40)
         self.assertEqual(ex.orders, [])
 
+    def test_sells_everything_and_stops_at_profit_target(self):
+        ex = FakeExchange()
+        budget = config.LIVE_BUDGET_EUR
+        coins = budget / 100
+        with open(live.LIVE_STATE_FILE, "w") as f:
+            json.dump({"portfolio": {"eur": 0.0, "coins": coins, "entry_price": 100.0}}, f)
+        price = (budget + config.LIVE_PROFIT_TARGET_EUR) / coins + 1
+        p = self.run_loop(ex, [price] * 40, 40)
+        self.assertEqual([o[0] for o in ex.orders], ["sell"])
+        self.assertEqual(p.coins, 0)
+        self.assertGreater(p.eur, budget + config.LIVE_PROFIT_TARGET_EUR * 0.99)
+
+    def test_sells_everything_and_stops_at_max_loss(self):
+        ex = FakeExchange()
+        budget = config.LIVE_BUDGET_EUR
+        coins = budget / 100
+        with open(live.LIVE_STATE_FILE, "w") as f:
+            json.dump({"portfolio": {"eur": 0.0, "coins": coins, "entry_price": 100.0}}, f)
+        price = (budget - config.LIVE_MAX_LOSS_EUR) / coins - 1
+        p = self.run_loop(ex, [price] * 40, 40)
+        self.assertEqual([o[0] for o in ex.orders], ["sell"])
+        self.assertEqual(p.coins, 0)
+
     def test_refuses_without_confirmation(self):
         ex = FakeExchange()
         with mock.patch.object(live, "client_from_env", return_value=ex), \
