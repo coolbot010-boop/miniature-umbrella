@@ -34,14 +34,14 @@ TRADES_FILE = "trades.csv"
 
 # ------------------------------------------------- Echt handelen (bot.py live)
 # Harde limiet: de bot gebruikt nooit meer dan dit bedrag van je echte euro's.
-LIVE_BUDGET_EUR = 20.0
+LIVE_BUDGET_EUR = 50.0
 
 # Stop helemaal als de bot dit bedrag kwijt is (waarde < budget - dit).
-LIVE_MAX_LOSS_EUR = 5.0
+LIVE_MAX_LOSS_EUR = 15.0
 
 # Beschermt tegen een bot die door een fout blijft kopen/verkopen.
 LIVE_MAX_TRADES_PER_DAY = 10
 
 # Bitvavo verplicht een operatorId bij elke order: een vast getal naar keuze
 # dat deze bot identificeert, bijvoorbeeld 1001.
-OPERATOR_ID = None
+OPERATOR_ID = 1001

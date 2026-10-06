@@ -29,7 +29,7 @@ De backtest vergelijkt het resultaat ook met **gewoon kopen en vasthouden**. Ver
 1. Maak een Bitvavo-account en verifieer het. Zet er een klein bedrag op (bijv. €20–50).
 2. Maak een API-key aan (Instellingen → API) met **alleen "Bekijken" en "Handelen", nooit "Opnemen"**. Zet bij voorkeur een IP-whitelist aan.
 3. Kopieer `.env.example` naar `.env` en vul key + secret in. `.env` staat in `.gitignore` en komt dus nooit in git.
-4. Zet in `config.py` een `OPERATOR_ID` (een getal naar keuze, bijv. `1001`). Bitvavo verplicht dit bij elke order.
+4. `OPERATOR_ID` in `config.py` staat al op `1001` (Bitvavo verplicht dit bij elke order).
 5. Test de key zonder iets te kopen: `python bot.py live-check`
 6. Start: `python bot.py live` en typ `ja`.
 
@@ -37,8 +37,8 @@ Ingebouwde beveiligingen (in `config.py`):
 
 | Instelling | Standaard | Wat het doet |
 |---|---|---|
-| `LIVE_BUDGET_EUR` | €20 | De bot gebruikt nooit meer van je euro's dan dit |
-| `LIVE_MAX_LOSS_EUR` | €5 | Is de bot €5 kwijt, dan stopt hij helemaal |
+| `LIVE_BUDGET_EUR` | €50 | De bot gebruikt nooit meer van je euro's dan dit |
+| `LIVE_MAX_LOSS_EUR` | €15 | Is de bot €15 kwijt, dan stopt hij helemaal |
 | `LIVE_MAX_TRADES_PER_DAY` | 10 | Voorkomt dat een fout je saldo opvreet met kosten |
 
 - De bot verkoopt **alleen munten die hij zelf gekocht heeft**. Crypto die je al had, blijft staan.
