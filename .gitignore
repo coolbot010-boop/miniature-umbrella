@@ -3,3 +3,5 @@ paper_state.json
 trades.csv
 __pycache__/
 *.pyc
+live_state.json
+live_trades.csv

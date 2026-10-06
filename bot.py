@@ -9,6 +9,9 @@ Gebruik:
     python bot.py backtest 5000   # ...met meer candles
     python bot.py status     # huidige stand van de nep-portefeuille
     python bot.py reset      # opnieuw beginnen met het startbudget
+
+    python bot.py live-check # test je API-key (alleen lezen, geen orders)
+    python bot.py live       # ECHT handelen met echt geld (zie live.py)
 """
 
 import csv
@@ -115,9 +118,10 @@ def save_portfolio(p):
         json.dump(asdict(p), f, indent=2)
 
 
-def log_trade(trade, portfolio, price):
-    new = not os.path.exists(config.TRADES_FILE)
-    with open(config.TRADES_FILE, "a", newline="") as f:
+def log_trade(trade, portfolio, price, path=None):
+    path = path or config.TRADES_FILE
+    new = not os.path.exists(path)
+    with open(path, "a", newline="") as f:
         w = csv.writer(f)
         if new:
             w.writerow(["tijd", "markt", "kant", "prijs", "hoeveelheid", "eur",
@@ -278,7 +282,9 @@ def cmd_reset():
 
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
-    commands = {"run": cmd_run, "backtest": cmd_backtest, "status": cmd_status, "reset": cmd_reset}
+    import live
+    commands = {"run": cmd_run, "backtest": cmd_backtest, "status": cmd_status, "reset": cmd_reset,
+                "live-check": live.cmd_check, "live": live.cmd_live}
     if cmd not in commands:
         print(__doc__)
         sys.exit(1)
