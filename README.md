@@ -67,4 +67,35 @@ Ingebouwde beveiligingen (in `config.py`):
 - De echte stand staat in `live_state.json`, elke echte order in `live_trades.csv`. Wil je opnieuw beginnen, verwijder dan `live_state.json` (de bot weet dan niet meer van eventuele munten die hij nog heeft).
 - De bot draait alleen zolang je computer aan staat en het venster open is.
 
+## 24/7 draaien op een server
+
+Zo draait de bot dag en nacht zonder dat je laptop aan hoeft te staan.
+
+1. Huur een kleine Linux-server (VPS) met **Ubuntu**, bijv. bij Hetzner, DigitalOcean of TransIP. De kleinste is genoeg.
+2. **Stop de bot op je laptop** (Ctrl+C). Laat nooit twee bots tegelijk draaien op hetzelfde account.
+3. Kopieer de hele map (inclusief `.env` en `live_state.json`) naar de server. In PowerShell, vanuit de tradebot-map:
+   ```
+   scp -r . root@JOUW-SERVER-IP:/root/tradebot
+   ```
+4. Log in en installeer:
+   ```
+   ssh root@JOUW-SERVER-IP
+   bash /root/tradebot/install-server.sh
+   ```
+5. Dashboard bekijken vanaf je laptop: open PowerShell en laat dit venster open staan:
+   ```
+   ssh -L 8050:localhost:8050 root@JOUW-SERVER-IP
+   ```
+   Ga dan in je browser naar http://localhost:8050. Het dashboard is zo alleen voor jou bereikbaar.
+
+Handig op de server:
+
+| Wat | Commando |
+|---|---|
+| Meekijken wat de bot doet | `journalctl -u tradebot -f` |
+| Stoppen | `systemctl stop tradebot` |
+| Weer starten | `systemctl start tradebot` |
+
+De bot start vanzelf opnieuw na een crash of een herstart van de server, maar **niet** als hij bewust gestopt is (verliesgrens bereikt of een foutmelding van de beurs op een order). Kijk dan eerst wat er aan de hand is.
+
 > Geen financieel advies. Een strategie die in het verleden werkte, geeft geen garantie voor de toekomst. Zet er alleen geld op dat je kunt missen.

@@ -187,7 +187,7 @@ def sell_reason(st, bid, now_ms):
     return None, info
 
 
-def cmd_live():
+def cmd_live(confirmed=False):
     import scanner
 
     if config.OPERATOR_ID is None:
@@ -208,13 +208,15 @@ def cmd_live():
     print(f"Max {config.LIVE_MAX_TRADES_PER_DAY} orders per dag")
     print(f"Boekhouding: €{p.eur:.2f}" + (f" + {p.coins:.8f} {st['market']}" if p.in_position else ""))
     print("=" * 64)
-    if input("Typ 'ja' om te starten: ").strip().lower() != "ja":
+    if confirmed:
+        print("Gestart met --ja (geen bevestigingsvraag).")
+    elif input("Typ 'ja' om te starten: ").strip().lower() != "ja":
         print("Afgebroken.")
         return
 
     if config.DASHBOARD:
         import dashboard
-        dashboard.start_background("live")
+        dashboard.start_background("live", open_browser=not confirmed)
 
     bid = ask = 0.0
     ranked, last_scan, skip_market = [], 0.0, None

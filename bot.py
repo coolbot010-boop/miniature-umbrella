@@ -12,6 +12,7 @@ Gebruik:
 
     python bot.py live-check # test je API-key (alleen lezen, geen orders)
     python bot.py live       # ECHT handelen met echt geld (zie live.py)
+    python bot.py live --ja  # idem, zonder bevestigingsvraag (voor een server)
     python bot.py dashboard  # alleen het dashboard openen
 """
 
@@ -364,7 +365,10 @@ def main():
         print(__doc__)
         sys.exit(1)
     try:
-        commands[cmd](*[int(a) for a in sys.argv[2:3]])
+        if cmd == "live":
+            live.cmd_live(confirmed="--ja" in sys.argv[2:])
+        else:
+            commands[cmd](*[int(a) for a in sys.argv[2:3] if a.isdigit()])
     except KeyboardInterrupt:
         print("\nGestopt. Stand is opgeslagen.")
     except urllib.error.URLError as e:

@@ -108,7 +108,7 @@ class LiveLoopTest(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.cwd)
 
-    def run_loop(self, ex, path, minutes, scan_result=None):
+    def run_loop(self, ex, path, minutes, scan_result=None, confirmed=False):
         """Draai de live-loop; path(min) geeft per minuut de koersen {markt: prijs}."""
         clock = {"min": 0}
         t0 = 1_800_000_000.0
@@ -141,10 +141,12 @@ class LiveLoopTest(unittest.TestCase):
                 mock.patch.object(live.time, "sleep", sleep), \
                 mock.patch.object(config, "OPERATOR_ID", 1001), \
                 mock.patch.object(config, "DASHBOARD", False), \
-                mock.patch.object(builtins, "input", return_value="ja"), \
+                mock.patch.object(builtins, "input", **(
+                    {"side_effect": AssertionError("mag niet vragen")} if confirmed
+                    else {"return_value": "ja"})), \
                 mock.patch("builtins.print"):
             try:
-                live.cmd_live()
+                live.cmd_live(confirmed=confirmed)
             except KeyboardInterrupt:
                 pass
         return live.load_state()
@@ -226,6 +228,11 @@ class LiveLoopTest(unittest.TestCase):
         st = live.load_state()
         self.assertEqual(st["market"], "BTC-EUR")
         self.assertEqual(st["peak"], 50000.0)
+
+    def test_server_mode_runs_without_asking(self):
+        ex = FakeExchange()
+        self.run_loop(ex, lambda m: {"AAA-EUR": 10.0}, 2, confirmed=True)
+        self.assertEqual(ex.orders[0][:2], ("buy", "AAA-EUR"))
 
     def test_refuses_without_confirmation(self):
         ex = FakeExchange()

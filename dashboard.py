@@ -131,8 +131,8 @@ def serve(mode, open_browser=True):
     return server
 
 
-def start_background(mode):
-    server = serve(mode)
+def start_background(mode, open_browser=True):
+    server = serve(mode, open_browser)
     if server:
         threading.Thread(target=server.serve_forever, daemon=True).start()
 
