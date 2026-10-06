@@ -67,6 +67,14 @@ Ingebouwde beveiligingen (in `config.py`):
 - De echte stand staat in `live_state.json`, elke echte order in `live_trades.csv`. Wil je opnieuw beginnen, verwijder dan `live_state.json` (de bot weet dan niet meer van eventuele munten die hij nog heeft).
 - De bot draait alleen zolang je computer aan staat en het venster open is.
 
+## Makkelijk starten op je laptop (Windows)
+
+Dubbelklik op **`START-BOT.bat`**. De bot start meteen (zonder vraag) en het dashboard opent in je browser. Zolang het zwarte venster open is, draait de bot en gaat je laptop niet in slaapstand (je scherm mag wel uit). Venster sluiten = bot stoppen.
+
+Let op: **klep dichtdoen zet een laptop meestal toch in slaap**. Wil je de klep dicht kunnen doen: Configuratiescherm → Energiebeheer → "Het gedrag van de aan/uit-knoppen bepalen" → bij klep sluiten "Niets doen" (op netstroom).
+
+Automatisch starten als je laptop opstart: druk Win+R, typ `shell:startup`, Enter, en zet daar een snelkoppeling naar `START-BOT.bat`.
+
 ## 24/7 draaien op een server
 
 Zo draait de bot dag en nacht zonder dat je laptop aan hoeft te staan.

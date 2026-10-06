@@ -166,6 +166,19 @@ def cmd_check():
           + f" (budget €{config.LIVE_BUDGET_EUR:.2f})")
 
 
+def keep_awake():
+    """Windows: voorkom slaapstand zolang de bot draait (scherm mag wel uit)."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+        print("Slaapstand staat uit zolang de bot draait (scherm mag wel uit).")
+    except Exception:
+        pass
+
+
 def sell_reason(st, bid, now_ms):
     """Moet de huidige coin verkocht worden? Geeft (reden of None, uitleg)."""
     p = st["portfolio"]
@@ -214,9 +227,10 @@ def cmd_live(confirmed=False):
         print("Afgebroken.")
         return
 
+    keep_awake()
     if config.DASHBOARD:
         import dashboard
-        dashboard.start_background("live", open_browser=not confirmed)
+        dashboard.start_background("live", open_browser=not confirmed or os.name == "nt")
 
     bid = ask = 0.0
     ranked, last_scan, skip_market = [], 0.0, None
