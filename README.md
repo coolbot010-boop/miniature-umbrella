@@ -41,16 +41,28 @@ De backtest vergelijkt het resultaat ook met **gewoon kopen en vasthouden**. Ver
 5. Test de key zonder iets te kopen: `python bot.py live-check`
 6. Start: `python bot.py live` en typ `ja`.
 
+### Strategie bij echt handelen (scanner)
+
+- Bij de start scant de bot **alle euro-markten** op Bitvavo en koopt **direct** de coin met de beste score (sterkste stijging van de laatste 4 uur ten opzichte van hoe wild hij beweegt, plus bonus bij een opwaartse trend).
+- Coins met te weinig handel (< €250.000 per dag), een te groot verschil tussen koop- en verkoopprijs (> 0,3%), stablecoins en coins die vandaag al > 50% gestegen zijn, slaat hij over.
+- **Na 15 minuten:** staat hij niet in winst, dan verkoopt hij en koopt hij direct de volgende beste coin.
+- **In winst:** dan laat hij hem doorlopen tot de koers **20% onder de hoogste koers** sinds aankoop zakt (of de winst weg is).
+- **Altijd:** verkopen als de koers **50% onder de aankoopprijs** komt.
+- Alles is aan te passen in `config.py` (`HOLD_MINUTES`, `POSITION_STOP_LOSS`, `TRAILING_STOP`, `SCAN_*`).
+
+Elke koop + verkoop kost samen ±0,5% aan kosten. Hoe vaker hij wisselt, hoe meer dat optelt.
+
 Ingebouwde beveiligingen (in `config.py`):
 
 | Instelling | Standaard | Wat het doet |
 |---|---|---|
 | `LIVE_BUDGET_EUR` | €50 | De bot gebruikt nooit meer van je euro's dan dit |
 | `LIVE_MAX_LOSS_EUR` | €25 | Is de bot €25 kwijt (50%), dan verkoopt hij alles en stopt |
-| `LIVE_PROFIT_TARGET_EUR` | €50 | Heeft hij €50 winst (€100 totaal), dan verkoopt hij alles en stopt |
-| `LIVE_MAX_TRADES_PER_DAY` | 10 | Voorkomt dat een fout je saldo opvreet met kosten |
+| `LIVE_PROFIT_TARGET_EUR` | geen | Winst heeft geen limiet (zet een bedrag om te stoppen bij winst) |
+| `LIVE_MAX_TRADES_PER_DAY` | 20 | Na 20 orders koopt hij die dag niets meer; verkopen gaat altijd door |
 
 - De bot verkoopt **alleen munten die hij zelf gekocht heeft**. Crypto die je al had, blijft staan.
+- Had de vorige versie al bitcoin gekocht, dan neemt deze versie die over en past de nieuwe regels erop toe.
 - Geeft de beurs een foutmelding op een order, dan stopt de bot direct in plaats van het opnieuw te proberen.
 - De echte stand staat in `live_state.json`, elke echte order in `live_trades.csv`. Wil je opnieuw beginnen, verwijder dan `live_state.json` (de bot weet dan niet meer van eventuele munten die hij nog heeft).
 - De bot draait alleen zolang je computer aan staat en het venster open is.

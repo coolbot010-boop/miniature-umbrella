@@ -20,7 +20,7 @@ import config
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TRADE_FILES = {"live": "live_trades.csv", "paper": config.TRADES_FILE}
-_candle_cache = {"t": 0, "data": []}
+_candle_cache = {}
 
 
 def read_json(path):
@@ -51,11 +51,12 @@ def read_trades(mode):
         return []
 
 
-def candles():
-    """Laatste ~2 dagen candles met de gemiddelden, 60 sec gecachet."""
-    if time.time() - _candle_cache["t"] > 60:
+def candles(market):
+    """Laatste ~2 dagen candles met de gemiddelden, 60 sec gecachet per markt."""
+    cache = _candle_cache.setdefault(market, {"t": 0, "data": []})
+    if time.time() - cache["t"] > 60:
         try:
-            raw = bot.get_candles(config.MARKET, config.INTERVAL, limit=192 + config.SLOW_SMA)
+            raw = bot.get_candles(market, config.INTERVAL, limit=192 + config.SLOW_SMA)
             closes = [c[4] for c in raw]
             out = []
             for i, c in enumerate(raw):
@@ -64,10 +65,10 @@ def candles():
                 slow = sum(closes[i - config.SLOW_SMA + 1:i + 1]) / config.SLOW_SMA \
                     if i >= config.SLOW_SMA - 1 else None
                 out.append([c[0], c[4], fast, slow])
-            _candle_cache.update(t=time.time(), data=out[config.SLOW_SMA:])
+            cache.update(t=time.time(), data=out[config.SLOW_SMA:])
         except Exception:
             pass  # geen internet: oude data houden
-    return _candle_cache["data"]
+    return cache["data"]
 
 
 def data(mode):
@@ -78,17 +79,18 @@ def data(mode):
     stale = 3 * config.POLL_SECONDS * 1000 + 30_000
     running = bool(status and not status.get("stopped")
                    and time.time() * 1000 - status["updated"] < stale)
+    market = (status or {}).get("market") or config.MARKET
     return {
         "mode": mode,
         "available": {m: os.path.exists(f"status_{m}.json") for m in ("live", "paper")},
         "status": status,
         "running": running,
         "history": read_history(mode),
-        "candles": candles(),
+        "candles": candles(market),
         "trades": trades[-50:],
         "wins": wins,
         "losses": len(sells) - wins,
-        "market": config.MARKET,
+        "market": market,
         "interval": config.INTERVAL,
     }
 

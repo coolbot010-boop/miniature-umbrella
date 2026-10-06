@@ -161,7 +161,7 @@ def save_portfolio(p):
         json.dump(asdict(p), f, indent=2)
 
 
-def log_trade(trade, portfolio, price, path=None):
+def log_trade(trade, portfolio, price, path=None, market=None):
     path = path or config.TRADES_FILE
     new = not os.path.exists(path)
     with open(path, "a", newline="") as f:
@@ -171,21 +171,22 @@ def log_trade(trade, portfolio, price, path=None):
                         "kosten", "winst_%", "reden", "portefeuille_eur"])
         w.writerow([
             datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            config.MARKET, trade["side"], f"{trade['price']:.2f}",
+            market or config.MARKET, trade["side"], f"{trade['price']:.8g}",
             f"{trade['amount']:.8f}", f"{trade['eur']:.2f}", f"{trade['fee']:.4f}",
             f"{trade.get('pnl_pct', 0):.2f}", trade.get("reason", ""),
             f"{portfolio.value(price):.2f}",
         ])
 
 
-def write_status(mode, p, bid, ask, closes, reason, start, floor=None, target=None, stopped=None):
+def write_status(mode, p, bid, ask, closes, reason, start, floor=None, target=None, stopped=None,
+                 market=None, extra=None):
     """Schrijft de actuele stand weg voor het dashboard (status_<mode>.json + history_<mode>.csv)."""
     mid = (bid + ask) / 2
     now_ms = int(time.time() * 1000)
     fast = sma(closes, config.FAST_SMA) if len(closes) >= config.FAST_SMA else None
     slow = sma(closes, config.SLOW_SMA) if len(closes) >= config.SLOW_SMA else None
     status = {
-        "mode": mode, "market": config.MARKET, "interval": config.INTERVAL,
+        "mode": mode, "market": market or config.MARKET, "interval": config.INTERVAL,
         "updated": now_ms, "poll_seconds": config.POLL_SECONDS,
         "bid": bid, "ask": ask, "price": mid, "value": p.value(bid),
         "eur": p.eur, "coins": p.coins, "entry_price": p.entry_price,
@@ -194,14 +195,14 @@ def write_status(mode, p, bid, ask, closes, reason, start, floor=None, target=No
         "fast_sma": fast, "slow_sma": slow,
         "fast_n": config.FAST_SMA, "slow_n": config.SLOW_SMA,
         "stop_loss": config.STOP_LOSS, "take_profit": config.TAKE_PROFIT,
-        "reason": reason, "stopped": stopped,
+        "reason": reason, "stopped": stopped, **(extra or {}),
     }
     tmp = f"status_{mode}.json.tmp"
     with open(tmp, "w") as f:
         json.dump(status, f)
     os.replace(tmp, f"status_{mode}.json")
     with open(f"history_{mode}.csv", "a") as f:
-        f.write(f"{now_ms},{mid:.2f},{p.value(bid):.4f}\n")
+        f.write(f"{now_ms},{mid:.8g},{p.value(bid):.4f}\n")
 
 
 # ----------------------------------------------------------- Strategy

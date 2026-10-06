@@ -269,10 +269,17 @@ function deltaHtml(abs, rel, money = true) {
 }
 
 /* ------------------------------------------------------------ Lijngrafiek */
-// Asl-labels: decimalen als de stappen kleiner dan €1 zijn
-const axisEur = (v, step) => step < 1
-  ? new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(v)
-  : eur0.format(v);
+// As-labels: zoveel decimalen als de stapgrootte nodig heeft (ook voor coins van €0,0001)
+const axisEur = (v, step) => {
+  const d = Math.min(8, Math.max(0, Math.ceil(-Math.log10(step || 1))));
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+};
+// Koersen: grote bedragen zonder centen, kleine coins met genoeg cijfers
+const priceFmt = (v) => v == null || isNaN(v) ? '–'
+  : v >= 1000 ? eur0.format(v)
+  : v >= 1 ? eur.format(v)
+  : new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumSignificantDigits: 4 }).format(v);
+const minutes = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} u ${m % 60} min`; };
 function niceTicks(min, max, count = 5) {
   const span = max - min || 1;
   const step0 = span / count;
@@ -420,15 +427,17 @@ function render(d) {
   const base = d.market.split('-')[0];
 
   let rangeCard = '';
-  if (s.floor != null && s.target != null) {
-    const pos = (v) => Math.min(100, Math.max(0, ((v - s.floor) / (s.target - s.floor)) * 100));
+  if (s.floor != null) {
+    const noCap = s.target == null;
+    const top = noCap ? Math.max(s.start * 2, s.value * 1.15) : s.target;
+    const pos = (v) => Math.min(100, Math.max(0, ((v - s.floor) / (top - s.floor)) * 100));
     const startPos = pos(s.start), cur = pos(s.value);
     const fillFrom = Math.min(startPos, cur), fillTo = Math.max(startPos, cur);
     const color = s.value >= s.start ? css('--good') : css('--bad');
     rangeCard = `
       <div class="card span-5">
         <div class="card-title">Op weg naar je doel</div>
-        <div class="card-sub">De bot verkoopt alles en stopt bij een van beide grenzen</div>
+        <div class="card-sub">${noCap ? 'Onder de verliesgrens verkoopt de bot alles en stopt hij. Winst heeft geen limiet.' : 'De bot verkoopt alles en stopt bij een van beide grenzen'}</div>
         <div class="range">
           <div class="range-track"><div class="range-fill" style="left:${fillFrom}%;width:${fillTo - fillFrom}%;background:${color}"></div></div>
           <div class="range-start" style="left:${startPos}%"></div>
@@ -438,9 +447,9 @@ function render(d) {
         <div class="range-labels">
           <div>▼ Verliesgrens<b>${eur0.format(s.floor)}</b></div>
           <div>Start<b>${eur0.format(s.start)}</b></div>
-          <div>Winstdoel ▲<b>${eur0.format(s.target)}</b></div>
+          <div>${noCap ? 'Geen limiet ▲<b>∞</b>' : `Winstdoel ▲<b>${eur0.format(s.target)}</b>`}</div>
         </div>
-        <div class="range-note">Nog <b>${eur.format(Math.max(0, s.target - s.value))}</b> tot het winstdoel · <b>${eur.format(Math.max(0, s.value - s.floor))}</b> boven de verliesgrens</div>
+        <div class="range-note">${noCap ? '' : `Nog <b>${eur.format(Math.max(0, s.target - s.value))}</b> tot het winstdoel · `}<b>${eur.format(Math.max(0, s.value - s.floor))}</b> boven de verliesgrens</div>
       </div>`;
   } else {
     rangeCard = `
@@ -452,7 +461,8 @@ function render(d) {
   }
 
   let signal, sigReason = s.reason.startsWith('wachten (') ? 'Geen actie nodig op dit moment' : s.reason;
-  if (s.fast_sma == null || s.slow_sma == null) signal = 'Data verzamelen';
+  if (s.strategy === 'scanner') signal = inPos ? `${base} vasthouden` : 'Scannen naar de beste coin';
+  else if (s.fast_sma == null || s.slow_sma == null) signal = 'Data verzamelen';
   else if (inPos) signal = s.fast_sma > s.slow_sma ? 'In positie · trend omhoog' : 'In positie · trend zwakt af';
   else signal = s.fast_sma > s.slow_sma ? 'Trend omhoog · wacht op nieuw koopsignaal' : 'Trend omlaag · wacht op kruising';
   const sl = inPos && s.stop_loss != null ? s.entry_price * (1 - s.stop_loss) : null;
@@ -465,13 +475,14 @@ function render(d) {
     return `<tr>
       <td>${esc(dateTime(t.tijd))}</td>
       <td><span class="badge ${buy ? 'buy' : 'sell'}">${buy ? '▲ Koop' : '▼ Verkoop'}</span></td>
-      <td class="num">${eur.format(parseFloat(t.prijs))}</td>
+      <td>${esc(t.markt)}</td>
+      <td class="num">${priceFmt(parseFloat(t.prijs))}</td>
       <td class="num">${eur.format(parseFloat(t.eur))}</td>
       <td class="num">${eur.format(parseFloat(t.kosten))}</td>
       <td class="num">${buy ? '<span class="muted">–</span>' : `<span class="${w >= 0 ? 'up-text' : 'down-text'}">${w >= 0 ? '▲' : '▼'} ${pct(w)}</span>`}</td>
       <td class="muted">${esc(t.reden)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7" class="muted" style="text-align:center;padding:28px">Nog geen trades. De bot koopt pas bij een nieuw signaal; dat kan uren duren.</td></tr>`;
+  }).join('') : `<tr><td colspan="8" class="muted" style="text-align:center;padding:28px">Nog geen trades.</td></tr>`;
 
   content.innerHTML = `
   <div class="grid">
@@ -485,13 +496,13 @@ function render(d) {
 
     <div class="card span-3">
       <div class="label">${base}-koers</div>
-      <div class="kpi-value">${eur0.format(s.price)}</div>
+      <div class="kpi-value">${priceFmt(s.price)}</div>
       <div class="kpi-foot">${deltaHtml(s.price - firstPrice, priceChg, false)} afgelopen 2 dagen</div>
     </div>
     <div class="card span-3">
       <div class="label">Positie</div>
       <div class="kpi-value">${inPos ? 'In ' + base : 'In euro\'s'}</div>
-      <div class="kpi-foot">${inPos ? `Gekocht @ ${eur0.format(s.entry_price)} · ${deltaHtml(0.01 * Math.sign(posPnl || 0), posPnl || 0, false)}` : 'Wacht op koopsignaal'}</div>
+      <div class="kpi-foot">${inPos ? `Gekocht @ ${priceFmt(s.entry_price)} · ${deltaHtml(0.01 * Math.sign(posPnl || 0), posPnl || 0, false)}` : (s.strategy === 'scanner' ? 'Zoekt de volgende coin' : 'Wacht op koopsignaal')}</div>
     </div>
     <div class="card span-3">
       <div class="label">Trades</div>
@@ -520,30 +531,83 @@ function render(d) {
       <div class="chart" id="cp"></div>
     </div>
 
+    ${s.strategy === 'scanner' ? scannerCard(s, d.market) : ''}
+
     <div class="card span-4">
       <div class="label">Strategie-signaal</div>
       <div class="sig-state">${esc(signal)}</div>
       <div class="sig-reason">${esc(sigReason)}</div>
-      <dl class="kv">
+      ${s.strategy === 'scanner' ? scannerKv(s, inPos) : `<dl class="kv">
         <dt>Snel gemiddelde (${s.fast_n})</dt><dd>${s.fast_sma != null ? eur.format(s.fast_sma) : '–'}</dd>
         <dt>Traag gemiddelde (${s.slow_n})</dt><dd>${s.slow_sma != null ? eur.format(s.slow_sma) : '–'}</dd>
         <hr>
-        <dt>Bied / laat</dt><dd>${eur0.format(s.bid)} / ${eur0.format(s.ask)}</dd>
-        ${sl ? `<dt>Stop-loss bij</dt><dd>${eur0.format(sl)}</dd>` : ''}
-        ${tp ? `<dt>Take-profit bij</dt><dd>${eur0.format(tp)}</dd>` : ''}
-      </dl>
+        <dt>Bied / laat</dt><dd>${priceFmt(s.bid)} / ${priceFmt(s.ask)}</dd>
+        ${sl ? `<dt>Stop-loss bij</dt><dd>${priceFmt(sl)}</dd>` : ''}
+        ${tp ? `<dt>Take-profit bij</dt><dd>${priceFmt(tp)}</dd>` : ''}
+      </dl>`}
     </div>
     <div class="card span-8">
       <div class="card-title">Recente trades</div>
       <div class="card-sub">Laatste ${trades.length} van ${d.trades.length}</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Tijd</th><th>Soort</th><th class="num">Prijs</th><th class="num">Bedrag</th><th class="num">Kosten</th><th class="num">Resultaat</th><th>Reden</th></tr></thead>
+        <thead><tr><th>Tijd</th><th>Soort</th><th>Coin</th><th class="num">Prijs</th><th class="num">Bedrag</th><th class="num">Kosten</th><th class="num">Resultaat</th><th>Reden</th></tr></thead>
         <tbody>${tradeRows}</tbody>
       </table></div>
     </div>
   </div>`;
 
   drawCharts();
+}
+
+function scannerKv(s, inPos) {
+  const now = Date.now();
+  if (!inPos) {
+    return `<dl class="kv"><dt>Orders vandaag</dt><dd>${s.trades_today} / ${s.max_trades_per_day}</dd></dl>`;
+  }
+  const net = (s.bid * (1 - 0.0025)) / s.entry_price - 1;
+  const held = now - s.opened_at;
+  const holdMs = s.hold_minutes * 60000;
+  const trailing = s.peak > s.entry_price;
+  const cls = net > 0 ? 'up-text' : net < 0 ? 'down-text' : '';
+  return `<dl class="kv">
+    <dt>Aankoopprijs</dt><dd>${priceFmt(s.entry_price)}</dd>
+    <dt>Nu</dt><dd>${priceFmt(s.bid)}</dd>
+    <dt>Hoogste koers sinds aankoop</dt><dd>${priceFmt(s.peak)}</dd>
+    <dt>Resultaat na kosten</dt><dd class="${cls}">${net >= 0 ? '▲' : '▼'} ${pct(net * 100)}</dd>
+    <dt>Vast sinds</dt><dd>${minutes(held)}</dd>
+    <hr>
+    <dt>▼ Stop-loss (−${Math.round(s.position_stop_loss * 100)}%) bij</dt><dd>${priceFmt(s.entry_price * (1 - s.position_stop_loss))}</dd>
+    <dt>▼ Winst-stop (−${Math.round(s.trailing_stop * 100)}% van piek)</dt><dd>${trailing ? priceFmt(s.peak * (1 - s.trailing_stop)) : 'nog niet actief'}</dd>
+    <dt>${held < holdMs ? 'Check: verkopen als niet in winst over' : 'Na ' + s.hold_minutes + ' min'}</dt><dd>${held < holdMs ? minutes(holdMs - held) : (net > 0 ? 'in winst, loopt door' : 'verkoopt')}</dd>
+    <dt>Orders vandaag</dt><dd>${s.trades_today} / ${s.max_trades_per_day}</dd>
+  </dl>`;
+}
+
+function scannerCard(s, current) {
+  const rows = (s.scan || []).map((r, i) => {
+    const c = (v) => `<span class="${v > 0 ? 'up-text' : v < 0 ? 'down-text' : ''}">${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${pct(v * 100)}</span>`;
+    const here = r.market === current;
+    return `<tr${here ? ' style="background:var(--chart-surface)"' : ''}>
+      <td>${i + 1}</td>
+      <td><b>${esc(r.market.split('-')[0])}</b>${here ? ' <span class="badge buy">in bezit</span>' : ''}</td>
+      <td class="num">${num(2).format(r.score)}</td>
+      <td class="num">${c(r.ret_1h)}</td>
+      <td class="num">${c(r.ret_4h)}</td>
+      <td class="num">${c(r.ret_24h)}</td>
+      <td class="num">${eur0.format(r.volume_eur)}</td>
+      <td class="num">${num(2).format(r.spread * 100)}%</td>
+      <td>${r.uptrend ? '<span class="up-text">▲ omhoog</span>' : '<span class="muted">■ zijwaarts/omlaag</span>'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="9" class="muted" style="text-align:center;padding:28px">Nog geen scan</td></tr>`;
+  return `
+    <div class="card span-12">
+      <div class="card-title">Scanner · beste coins nu</div>
+      <div class="card-sub">Alle euro-markten op Bitvavo, gefilterd op genoeg handel en een kleine spread${s.scanned_at ? ' · gescand om ' + new Date(s.scanned_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Coin</th><th class="num">Score</th><th class="num">1 uur</th><th class="num">4 uur</th><th class="num">24 uur</th><th class="num">Omzet 24u</th><th class="num">Spread</th><th>Trend</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
 }
 
 function drawCharts() {
@@ -559,7 +623,8 @@ function drawCharts() {
     emptyText: 'De lijn verschijnt na een paar minuten draaien',
   });
   const c = d.candles.length ? d.candles : d.history.map((h) => [h[0], h[1], null, null]);
-  const markers = d.trades.map((t) => ({ t: Date.parse(t.tijd), v: parseFloat(t.prijs), side: t.kant }));
+  const markers = d.trades.filter((t) => !t.markt || t.markt === d.market)
+    .map((t) => ({ t: Date.parse(t.tijd), v: parseFloat(t.prijs), side: t.kant }));
   lineChart(cp, {
     label: `${d.market} koers met gemiddelden`,
     series: [
@@ -568,7 +633,7 @@ function drawCharts() {
       { name: `Traag gem.`, color: css('--series-3'), data: c.map((x) => [x[0], x[3]]), width: 1.5 },
     ],
     markers,
-    yFmt: axisEur, tipFmt: (v) => eur.format(v),
+    yFmt: axisEur, tipFmt: priceFmt,
   });
 }
 

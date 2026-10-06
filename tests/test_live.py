@@ -16,30 +16,32 @@ import live  # noqa: E402
 
 
 class FakeExchange:
-    """Simuleert Bitvavo: vult marktorders met 0,25% kosten in EUR."""
+    """Simuleert Bitvavo: vult marktorders met 0,25% kosten in EUR, per markt een koers."""
 
-    def __init__(self, eur=100.0, btc=0.5):
-        self.bal = {"EUR": eur, "BTC": btc}
-        self.price = 100.0
+    def __init__(self, eur=100.0, own=None):
+        self.bal = {"EUR": eur, **(own or {})}
+        self.prices = {}
         self.orders = []
 
     def balance(self, symbol):
-        return self.bal[symbol]
+        return self.bal.get(symbol, 0.0)
 
     def order(self, market, side, **amount):
-        self.orders.append((side, amount))
+        base = market.split("-")[0]
+        price = self.prices[market]
+        self.orders.append((side, market, amount))
         if side == "buy":
             quote = float(amount["amountQuote"])
             fee = quote * 0.0025
-            coins = (quote - fee) / self.price
+            coins = (quote - fee) / price
             self.bal["EUR"] -= quote
-            self.bal["BTC"] += coins
+            self.bal[base] = self.bal.get(base, 0) + coins
             return {"status": "filled", "filledAmount": str(coins),
                     "filledAmountQuote": str(quote - fee), "feePaid": str(fee), "feeCurrency": "EUR"}
         coins = float(amount["amount"])
-        quote = coins * self.price
+        quote = coins * price
         fee = quote * 0.0025
-        self.bal["BTC"] -= coins
+        self.bal[base] -= coins
         self.bal["EUR"] += quote - fee
         return {"status": "filled", "filledAmount": str(coins),
                 "filledAmountQuote": str(quote), "feePaid": str(fee), "feeCurrency": "EUR"}
@@ -92,98 +94,142 @@ class FillTest(unittest.TestCase):
         self.assertAlmostEqual(eur, 9.975)
 
 
+def choice(market, price):
+    return {"market": market, "bid": price, "ask": price, "min_order_eur": 5.0, "score": 1.0,
+            "ret_1h": 0.01, "ret_4h": 0.02, "ret_24h": 0.03, "volume_eur": 1e6,
+            "spread": 0.001, "uptrend": True}
+
+
 class LiveLoopTest(unittest.TestCase):
     def setUp(self):
-        self.dir = tempfile.mkdtemp()
         self.cwd = os.getcwd()
-        os.chdir(self.dir)
+        os.chdir(tempfile.mkdtemp())
 
     def tearDown(self):
         os.chdir(self.cwd)
 
-    def run_loop(self, ex, prices, ticks):
-        """Draai de live-loop met nep-beurs en nep-koersen."""
-        state = {"i": 0}
+    def run_loop(self, ex, path, minutes, scan_result=None):
+        """Draai de live-loop; path(min) geeft per minuut de koersen {markt: prijs}."""
+        clock = {"min": 0}
+        t0 = 1_800_000_000.0
 
-        def candles(market, interval, limit=100, end_ms=None):
-            i = state["i"]
-            t = int(time.time() * 1000) - 900_000 * (i + 2)
-            return [[t + k * 900_000, 0, 0, 0, prices[k], 0] for k in range(i + 1)] + \
-                   [[int(time.time() * 1000), 0, 0, 0, 0, 0]]
+        def fake_time():
+            return t0 + clock["min"] * 60
 
         def book(market):
-            ex.price = prices[state["i"]]
-            return ex.price, ex.price
+            p = ex.prices[market]
+            return p, p
+
+        def scan():
+            ex.prices.update(path(clock["min"]))
+            return scan_result(clock["min"]) if scan_result else \
+                [choice(m, pr) for m, pr in path(clock["min"]).items()]
 
         def sleep(_):
-            state["i"] += 1
-            if state["i"] >= ticks:
+            clock["min"] += 1
+            ex.prices.update(path(clock["min"]))
+            if clock["min"] >= minutes:
                 raise KeyboardInterrupt
 
+        ex.prices.update(path(0))
+        import scanner
         with mock.patch.object(live, "client_from_env", return_value=ex), \
-                mock.patch.object(live, "quantity_decimals", return_value=8), \
-                mock.patch.object(bot, "get_candles", candles), \
+                mock.patch.object(scanner, "scan", scan), \
+                mock.patch.object(scanner, "quantity_decimals", return_value=8), \
                 mock.patch.object(bot, "get_book", book), \
+                mock.patch.object(live.time, "time", fake_time), \
                 mock.patch.object(live.time, "sleep", sleep), \
                 mock.patch.object(config, "OPERATOR_ID", 1001), \
-                mock.patch.object(builtins, "input", return_value="ja"), \
                 mock.patch.object(config, "DASHBOARD", False), \
+                mock.patch.object(builtins, "input", return_value="ja"), \
                 mock.patch("builtins.print"):
             try:
                 live.cmd_live()
             except KeyboardInterrupt:
                 pass
-        return live.load_state()[0]
+        return live.load_state()
 
-    def test_buys_within_budget_and_never_sells_users_own_coins(self):
-        ex = FakeExchange(eur=100.0, btc=0.5)   # gebruiker had al 0.5 BTC
-        prices = [100 - i * 0.5 for i in range(30)] + [85 + i * 2 for i in range(15)] \
-            + [113 - i * 3 for i in range(15)]
-        p = self.run_loop(ex, prices, len(prices))
-        buys = [o for o in ex.orders if o[0] == "buy"]
-        self.assertTrue(buys)
-        for _, amt in buys:
-            self.assertLessEqual(float(amt["amountQuote"]), config.LIVE_BUDGET_EUR)
-        # Eigen 0.5 BTC van de gebruiker blijft staan
-        self.assertGreaterEqual(ex.bal["BTC"], 0.5 - 1e-9)
-        # EUR die de bot uitgaf is nooit meer dan het budget
-        self.assertGreaterEqual(ex.bal["EUR"], 100 - config.LIVE_BUDGET_EUR - 1e-9)
-        self.assertAlmostEqual(p.value(prices[-1]) - p.eur - p.coins * prices[-1], 0)
+    def test_buys_immediately_at_start(self):
+        ex = FakeExchange()
+        self.run_loop(ex, lambda m: {"AAA-EUR": 10.0}, 2)
+        self.assertEqual(ex.orders[0][:2], ("buy", "AAA-EUR"))
+        self.assertEqual(float(ex.orders[0][2]["amountQuote"]), config.LIVE_BUDGET_EUR)
+
+    def test_sells_after_hold_time_without_profit_and_buys_next(self):
+        ex = FakeExchange()
+        prices = lambda m: {"AAA-EUR": 10.0, "BBB-EUR": 5.0}
+        st = self.run_loop(ex, prices, config.HOLD_MINUTES + 2)
+        sides = [(o[0], o[1]) for o in ex.orders]
+        self.assertEqual(sides[0], ("buy", "AAA-EUR"))
+        self.assertEqual(sides[1], ("sell", "AAA-EUR"))
+        # verloren op AAA -> volgende keer een andere coin
+        self.assertEqual(sides[2], ("buy", "BBB-EUR"))
+        self.assertEqual(st["market"], "BBB-EUR")
+
+    def test_no_sale_before_hold_time_when_not_crashing(self):
+        ex = FakeExchange()
+        self.run_loop(ex, lambda m: {"AAA-EUR": 10.0 * (1 - 0.01 * m)}, config.HOLD_MINUTES - 1)
+        self.assertEqual([o[0] for o in ex.orders], ["buy"])
+
+    def test_stop_loss_at_minus_50_percent_sells_immediately(self):
+        ex = FakeExchange()
+        self.run_loop(ex, lambda m: {"AAA-EUR": 10.0 if m < 3 else 4.9}, 5)
+        self.assertEqual([o[0] for o in ex.orders][:2], ["buy", "sell"])
+        self.assertEqual(ex.orders[1][1], "AAA-EUR")
+
+    def test_winner_keeps_running_and_sells_20_percent_below_peak(self):
+        # stijgt tot +100% in 40 min, zakt daarna 1% per minuut
+        def path(m):
+            p = 10.0 * (1 + m / 40) if m <= 40 else 20.0 * (1 - 0.01 * (m - 40))
+            return {"AAA-EUR": p}
+        ex = FakeExchange(eur=50.0)
+        sold = []
+        real_order = ex.order
+
+        def order(market, side, **amount):
+            if side == "sell":
+                sold.append(ex.prices[market])
+            return real_order(market, side, **amount)
+        ex.order = order
+        self.run_loop(ex, path, 70)
+        # niet verkocht tijdens de stijging, wel zodra hij 20% onder de piek (20) zakt
+        self.assertTrue(sold)
+        self.assertAlmostEqual(sold[0], 16.0, delta=0.21)
+
+    def test_never_spends_more_than_budget_or_sells_users_own_coins(self):
+        ex = FakeExchange(eur=500.0, own={"AAA": 3.0})
+        prices = lambda m: {"AAA-EUR": 10.0, "BBB-EUR": 5.0}
+        self.run_loop(ex, prices, 60)
+        for side, _, amt in ex.orders:
+            if side == "buy":
+                self.assertLessEqual(float(amt["amountQuote"]), config.LIVE_BUDGET_EUR)
+        self.assertGreaterEqual(ex.bal["AAA"], 3.0 - 1e-9)
+        self.assertGreaterEqual(ex.bal["EUR"], 500 - config.LIVE_BUDGET_EUR - 1e-9)
+
+    def test_daily_order_cap_blocks_buys_not_sells(self):
+        ex = FakeExchange()
+        with mock.patch.object(config, "LIVE_MAX_TRADES_PER_DAY", 3):
+            st = self.run_loop(ex, lambda m: {"AAA-EUR": 10.0, "BBB-EUR": 5.0}, 60)
+        self.assertEqual(len(ex.orders), 4)  # koop, verkoop, koop, verkoop
+        self.assertFalse(st["portfolio"].in_position)
 
     def test_stops_at_max_loss(self):
         ex = FakeExchange()
         with open(live.LIVE_STATE_FILE, "w") as f:
             json.dump({"portfolio": {"eur": config.LIVE_BUDGET_EUR - config.LIVE_MAX_LOSS_EUR - 1}}, f)
-        self.run_loop(ex, [100.0] * 40, 40)
+        self.run_loop(ex, lambda m: {"AAA-EUR": 10.0}, 5)
         self.assertEqual(ex.orders, [])
 
-    def test_sells_everything_and_stops_at_profit_target(self):
-        ex = FakeExchange()
-        budget = config.LIVE_BUDGET_EUR
-        coins = budget / 100
+    def test_old_btc_state_is_migrated(self):
         with open(live.LIVE_STATE_FILE, "w") as f:
-            json.dump({"portfolio": {"eur": 0.0, "coins": coins, "entry_price": 100.0}}, f)
-        price = (budget + config.LIVE_PROFIT_TARGET_EUR) / coins + 1
-        p = self.run_loop(ex, [price] * 40, 40)
-        self.assertEqual([o[0] for o in ex.orders], ["sell"])
-        self.assertEqual(p.coins, 0)
-        self.assertGreater(p.eur, budget + config.LIVE_PROFIT_TARGET_EUR * 0.99)
-
-    def test_sells_everything_and_stops_at_max_loss(self):
-        ex = FakeExchange()
-        budget = config.LIVE_BUDGET_EUR
-        coins = budget / 100
-        with open(live.LIVE_STATE_FILE, "w") as f:
-            json.dump({"portfolio": {"eur": 0.0, "coins": coins, "entry_price": 100.0}}, f)
-        price = (budget - config.LIVE_MAX_LOSS_EUR) / coins - 1
-        p = self.run_loop(ex, [price] * 40, 40)
-        self.assertEqual([o[0] for o in ex.orders], ["sell"])
-        self.assertEqual(p.coins, 0)
+            json.dump({"portfolio": {"eur": 0.0, "coins": 0.001, "entry_price": 50000.0}}, f)
+        st = live.load_state()
+        self.assertEqual(st["market"], "BTC-EUR")
+        self.assertEqual(st["peak"], 50000.0)
 
     def test_refuses_without_confirmation(self):
         ex = FakeExchange()
         with mock.patch.object(live, "client_from_env", return_value=ex), \
-                mock.patch.object(live, "quantity_decimals", return_value=8), \
                 mock.patch.object(config, "OPERATOR_ID", 1001), \
                 mock.patch.object(builtins, "input", return_value="nee"), \
                 mock.patch("builtins.print"):
