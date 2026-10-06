@@ -490,7 +490,7 @@ function render(d) {
       <div class="label">Portefeuillewaarde</div>
       <div class="hero-value">${eur.format(s.value)}</div>
       ${deltaHtml(pnl, pnlPct)} <span class="muted">sinds start (${eur.format(s.start)})</span>
-      <div class="hero-foot">${eur.format(s.eur)} in euro's${inPos ? ` · ${num(8).format(s.coins)} ${base}` : ''}</div>
+      <div class="hero-foot">${eur.format(Math.abs(s.eur) < 0.005 ? 0 : s.eur)} in euro's${inPos ? ` · ${num(8).format(s.coins)} ${base}` : ''}</div>
     </div>
     ${rangeCard}
 

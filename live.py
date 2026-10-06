@@ -266,7 +266,7 @@ def cmd_live():
         coins, eur, fee = fill_summary(res, "buy", base)
         if coins <= 0:
             return False
-        p.eur -= eur
+        p.eur = max(0.0, round(p.eur - eur, 8))  # geen -0,00 door afronding
         p.coins += coins
         p.entry_price = eur / coins
         st.update(market=market, peak=p.entry_price, opened_at=int(time.time() * 1000))
