@@ -41,12 +41,23 @@ def load_env(path=".env"):
 class Bitvavo:
     def __init__(self, key, secret):
         self.key, self.secret = key, secret
+        self.offset_ms = None  # verschil tussen klok van Bitvavo en van deze pc
+
+    def now_ms(self):
+        """Tijd volgens Bitvavo, zodat een verkeerde pc-klok orders niet laat mislukken."""
+        if self.offset_ms is None:
+            try:
+                server = int(bot.api_get("time")["time"])
+                self.offset_ms = server - int(time.time() * 1000)
+            except Exception:
+                return int(time.time() * 1000)
+        return int(time.time() * 1000) + self.offset_ms
 
     def request(self, method, path, params=None, body=None):
         query = ("?" + bot.urllib.parse.urlencode(params)) if params else ""
         url_path = f"/v2/{path}{query}"
         payload = json.dumps(body, separators=(",", ":")) if body else ""
-        ts = str(int(time.time() * 1000))
+        ts = str(self.now_ms())
         sig = hmac.new(self.secret.encode(), (ts + method + url_path + payload).encode(),
                        hashlib.sha256).hexdigest()
         req = urllib.request.Request(

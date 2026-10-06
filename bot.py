@@ -31,13 +31,45 @@ import config
 
 API = "https://api.bitvavo.com/v2"
 
-# Gebruik de certificatenlijst van 'certifi' als die geïnstalleerd is
-# (pip install certifi). Helpt als Windows een verouderde lijst heeft.
-try:
-    import certifi
-    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-except ImportError:
-    SSL_CONTEXT = ssl.create_default_context()
+
+def _make_ssl_context():
+    """Beveiligde verbinding die op elke pc werkt.
+
+    Eerst 'truststore': laat Windows/macOS zelf het certificaat controleren, net als
+    je browser (Windows haalt ontbrekende certificaten dan zelf op). Lukt dat niet,
+    dan de actuele lijst van 'certifi' plus die van het systeem. Ontbrekende pakketten
+    worden de eerste keer automatisch geïnstalleerd.
+    """
+    try:
+        import truststore  # noqa: F401
+        import certifi  # noqa: F401
+    except ImportError:
+        import importlib
+        import site
+        import subprocess
+        print("Eenmalig: benodigde pakketten installeren (truststore, certifi)...")
+        in_venv = sys.prefix != sys.base_prefix
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
+                        *([] if in_venv else ["--user"]), "truststore", "certifi"], check=False)
+        if not in_venv:
+            site.addsitedir(site.getusersitepackages())
+        importlib.invalidate_caches()
+    try:
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:
+        pass
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+        ctx.load_verify_locations(certifi.where())
+    except Exception:
+        pass
+    return ctx
+
+
+SSL_CONTEXT = _make_ssl_context()
+
 INTERVAL_MS = {
     "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000,
     "1h": 3_600_000, "2h": 7_200_000, "4h": 14_400_000, "6h": 21_600_000,
@@ -349,9 +381,7 @@ Dit ligt niet aan de bot of je API-key. Probeer, in deze volgorde:
 1. Klopt de datum en tijd van je computer? Volgens je pc is het nu: {tijd}
    Zo niet: Instellingen > Tijd en taal > 'Tijd automatisch instellen' aan,
    en klik op 'Nu synchroniseren'.
-2. Installeer een actuele certificatenlijst:   pip install certifi
-   en probeer het daarna opnieuw.
-3. Heb je een virusscanner zoals Avast, AVG, Kaspersky of ESET? Zet daarin
+2. Heb je een virusscanner zoals Avast, AVG, Kaspersky of ESET? Zet daarin
    'HTTPS-scannen' / 'webschild' uit, of voeg Python toe als uitzondering.
 """
 

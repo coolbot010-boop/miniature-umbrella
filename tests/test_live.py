@@ -48,6 +48,7 @@ class FakeExchange:
 class SignatureTest(unittest.TestCase):
     def test_signature_is_hmac_of_ts_method_path_body(self):
         c = live.Bitvavo("k", "secret")
+        c.offset_ms = 0
         captured = {}
 
         def fake_urlopen(req, timeout, context=None):
@@ -65,6 +66,14 @@ class SignatureTest(unittest.TestCase):
         self.assertEqual(h["bitvavo-access-timestamp"], "1000")
         self.assertEqual(captured["req"].data, body.encode())
         self.assertEqual(json.loads(captured["req"].data)["operatorId"], 1)
+
+
+class ClockTest(unittest.TestCase):
+    def test_uses_bitvavo_clock_when_pc_clock_is_wrong(self):
+        c = live.Bitvavo("k", "s")
+        with mock.patch.object(live.bot, "api_get", return_value={"time": 2_000_000}), \
+                mock.patch.object(live.time, "time", return_value=1_000.0):
+            self.assertEqual(c.now_ms(), 2_000_000)
 
 
 class FillTest(unittest.TestCase):

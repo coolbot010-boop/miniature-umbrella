@@ -1,6 +1,6 @@
 # Bitvavo paper-trading-bot
 
-Handelt met **nep-geld** op **echte live koersen** van Bitvavo. Geen account, geen API-key en geen extra pakketten nodig, alleen Python 3.9+.
+Handelt met **nep-geld** op **echte live koersen** van Bitvavo. Geen account en geen API-key nodig, alleen Python 3.10+. Bij de eerste start installeert de bot zelf twee kleine pakketten (`truststore`, `certifi`) voor een betrouwbare beveiligde verbinding.
 
 ## Starten
 
