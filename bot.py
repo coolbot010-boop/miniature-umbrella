@@ -12,6 +12,7 @@ Gebruik:
 
     python bot.py live-check # test je API-key (alleen lezen, geen orders)
     python bot.py live       # ECHT handelen met echt geld (zie live.py)
+    python bot.py dashboard  # alleen het dashboard openen
 """
 
 import csv
@@ -135,6 +136,32 @@ def log_trade(trade, portfolio, price, path=None):
         ])
 
 
+def write_status(mode, p, bid, ask, closes, reason, start, floor=None, target=None, stopped=None):
+    """Schrijft de actuele stand weg voor het dashboard (status_<mode>.json + history_<mode>.csv)."""
+    mid = (bid + ask) / 2
+    now_ms = int(time.time() * 1000)
+    fast = sma(closes, config.FAST_SMA) if len(closes) >= config.FAST_SMA else None
+    slow = sma(closes, config.SLOW_SMA) if len(closes) >= config.SLOW_SMA else None
+    status = {
+        "mode": mode, "market": config.MARKET, "interval": config.INTERVAL,
+        "updated": now_ms, "poll_seconds": config.POLL_SECONDS,
+        "bid": bid, "ask": ask, "price": mid, "value": p.value(bid),
+        "eur": p.eur, "coins": p.coins, "entry_price": p.entry_price,
+        "fees_paid": p.fees_paid, "trades": p.trades,
+        "start": start, "floor": floor, "target": target,
+        "fast_sma": fast, "slow_sma": slow,
+        "fast_n": config.FAST_SMA, "slow_n": config.SLOW_SMA,
+        "stop_loss": config.STOP_LOSS, "take_profit": config.TAKE_PROFIT,
+        "reason": reason, "stopped": stopped,
+    }
+    tmp = f"status_{mode}.json.tmp"
+    with open(tmp, "w") as f:
+        json.dump(status, f)
+    os.replace(tmp, f"status_{mode}.json")
+    with open(f"history_{mode}.csv", "a") as f:
+        f.write(f"{now_ms},{mid:.2f},{p.value(bid):.4f}\n")
+
+
 # ----------------------------------------------------------- Strategy
 
 def sma(values, n):
@@ -187,6 +214,9 @@ def cmd_run():
     step = INTERVAL_MS[config.INTERVAL]
     print(f"Paper trading {config.MARKET} ({config.INTERVAL}), €{p.eur:.2f} in kas, {p.coins:.8f} munten")
     print("Ctrl+C om te stoppen.\n")
+    if config.DASHBOARD:
+        import dashboard
+        dashboard.start_background("paper")
     while True:
         try:
             candles = get_candles(config.MARKET, config.INTERVAL, limit=config.SLOW_SMA + 5)
@@ -205,6 +235,7 @@ def cmd_run():
                 extra = f" ({trade['pnl_pct']:+.2f}%)" if trade["side"] == "sell" else ""
                 print(f"[{now()}] {trade['side'].upper()} @ €{trade['price']:.2f}{extra} — {reason}")
 
+            write_status("paper", p, bid, ask, closes, reason, config.START_BUDGET_EUR)
             print(f"[{now()}] koers €{mid:.2f} | waarde €{p.value(mid):.2f} | {reason}")
         except KeyboardInterrupt:
             raise
@@ -274,7 +305,7 @@ def cmd_status():
 
 
 def cmd_reset():
-    for f in (config.STATE_FILE, config.TRADES_FILE):
+    for f in (config.STATE_FILE, config.TRADES_FILE, "status_paper.json", "history_paper.csv"):
         if os.path.exists(f):
             os.remove(f)
     print(f"Gereset. Nieuw startbudget: €{config.START_BUDGET_EUR:.2f}")
@@ -283,7 +314,8 @@ def cmd_reset():
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
     import live
-    commands = {"run": cmd_run, "backtest": cmd_backtest, "status": cmd_status, "reset": cmd_reset,
+    import dashboard
+    commands = {"dashboard": dashboard.cmd_dashboard, "run": cmd_run, "backtest": cmd_backtest, "status": cmd_status, "reset": cmd_reset,
                 "live-check": live.cmd_check, "live": live.cmd_live}
     if cmd not in commands:
         print(__doc__)

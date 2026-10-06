@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 live_state.json
 live_trades.csv
+status_*.json
+status_*.json.tmp
+history_*.csv

@@ -14,6 +14,14 @@ python bot.py reset           # opnieuw beginnen
 
 Alle instellingen staan in `config.py`: markt, interval, startbudget (standaard €50), maximum per trade, kosten (0,25%), strategie, stop-loss en take-profit.
 
+## Dashboard
+
+Bij `python bot.py run` en `python bot.py live` opent automatisch een dashboard in je browser (http://localhost:8050). Daar zie je je portefeuillewaarde, winst/verlies, hoe ver je van je verliesgrens en winstdoel af zit, de koersgrafiek met koop- en verkoopmomenten, het huidige signaal en je laatste trades. Het ververst elke 5 seconden.
+
+Los openen (bijv. als de bot in een ander venster draait): `python bot.py dashboard`. Uitzetten kan met `DASHBOARD = False` in `config.py`.
+
+Het dashboard draait alleen op je eigen computer, gebruikt je API-key niet en kan geen orders plaatsen.
+
 ## Hoe het werkt
 
 - **Strategie:** moving-average crossover. Kopen als het snelle gemiddelde (9 candles) het trage (21) van onder naar boven kruist, verkopen bij de omgekeerde kruising. Daarnaast een stop-loss (−3%) en take-profit (+6%).

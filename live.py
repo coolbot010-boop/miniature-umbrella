@@ -160,7 +160,19 @@ def cmd_live():
         print("Afgebroken.")
         return
 
+    if config.DASHBOARD:
+        import dashboard
+        dashboard.start_background("live")
+
     step = bot.INTERVAL_MS[config.INTERVAL]
+    bid = ask = 0.0
+    closes = []
+
+    def status(reason, stopped=None):
+        if bid:
+            bot.write_status("live", p, bid, ask, closes, reason, config.LIVE_BUDGET_EUR,
+                             floor, target, stopped)
+
     while True:
         try:
             if day != date.today().isoformat():
@@ -211,6 +223,7 @@ def cmd_live():
                     trades_today += 1
 
             save_state(p, day, trades_today)
+            status(reason, stop)
             print(f"[{bot.now()}] koers €{(bid + ask) / 2:.2f} | waarde €{p.value(bid):.2f} | {reason}")
             if stop:
                 print(f"[{bot.now()}] {stop}. Alles staat weer in euro's. Bot stopt.")
@@ -219,6 +232,7 @@ def cmd_live():
             raise
         except RuntimeError as e:  # fout van de beurs bij een order: niet doorgaan
             save_state(p, day, trades_today)
+            status(f"beursfout: {e}", f"beursfout: {e}")
             print(f"[{bot.now()}] Beursfout, bot stopt voor de veiligheid: {e}")
             return
         except Exception as e:  # netwerk hikt: later opnieuw

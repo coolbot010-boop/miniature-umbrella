@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tradebot Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232a78d6'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='sans-serif'>₿</text></svg>">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f3f4f6;
+  --surface: #ffffff;
+  --chart-surface: #fcfcfb;
+  --nav: #0d366b;
+  --nav-ink: #ffffff;
+  --nav-muted: #b7d3f6;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --accent: #2a78d6;
+  --accent-soft: #cde2fb;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --good: #0ca30c;
+  --good-text: #006300;
+  --bad: #d03b3b;
+  --bad-text: #b42323;
+  --warn: #fab219;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --chart-surface: #1a1a19;
+    --nav: #10213a;
+    --nav-muted: #86b6ef;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --accent: #3987e5;
+    --accent-soft: #184f95;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --good-text: #0ca30c;
+    --bad-text: #e66767;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --chart-surface: #1a1a19; --nav: #10213a;
+  --nav-muted: #86b6ef; --ink: #ffffff; --ink-2: #c3c2b7; --grid: #2c2c2a; --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10); --accent: #3987e5; --accent-soft: #184f95;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --good-text: #0ca30c; --bad-text: #e66767; --shadow: none;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Navigatiebalk */
+.nav {
+  background: var(--nav);
+  color: var(--nav-ink);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+}
+.brand { font-weight: 650; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 28px; height: 28px; border-radius: 7px; background: var(--accent);
+  display: grid; place-items: center; font-size: 15px;
+}
+.tabs { display: flex; gap: 4px; height: 100%; }
+.tab {
+  white-space: nowrap;
+  appearance: none; border: 0; background: none; color: var(--nav-muted);
+  font: inherit; font-weight: 550; padding: 0 14px; cursor: pointer;
+  border-bottom: 3px solid transparent; height: 100%;
+}
+.tab[aria-selected="true"] { color: var(--nav-ink); border-bottom-color: var(--nav-ink); }
+.tab:disabled { opacity: 0.4; cursor: default; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 16px; color: var(--nav-muted); font-size: 13px; }
+.pill {
+  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.12); color: var(--nav-ink);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.on .dot { background: var(--good); box-shadow: 0 0 0 3px rgba(12, 163, 12, 0.25); }
+.pill.off .dot { background: var(--bad); }
+
+/* Pagina */
+main { max-width: 1320px; margin: 0 auto; padding: 24px; }
+.page-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.page-head h1 { font-size: 22px; font-weight: 650; margin: 0; }
+.page-head .sub { color: var(--ink-2); }
+
+.banner {
+  display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--bad);
+  box-shadow: var(--shadow);
+}
+.banner.show { display: block; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px 20px; box-shadow: var(--shadow); min-width: 0;
+}
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.span-5 { grid-column: span 5; }
+.span-6 { grid-column: span 6; }
+.span-7 { grid-column: span 7; }
+.span-8 { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
+@media (max-width: 1100px) {
+  .span-3 { grid-column: span 6; }
+  .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
+}
+@media (max-width: 560px) {
+  main { padding: 16px; }
+  .span-3 { grid-column: span 12; }
+  .nav { padding: 0 16px; gap: 12px; }
+  .nav-right .updated, .brand-text { display: none; }
+  .tab { padding: 0 10px; }
+}
+
+.label { color: var(--ink-2); font-size: 13px; font-weight: 550; }
+.card-title { font-size: 15px; font-weight: 650; margin: 0 0 2px; }
+.card-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+
+/* Hero */
+.hero-value { font-size: 48px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; margin: 6px 0 8px; }
+.delta { font-weight: 600; display: inline-flex; gap: 6px; align-items: baseline; }
+.delta.up { color: var(--good-text); }
+.delta.down { color: var(--bad-text); }
+.delta.flat { color: var(--ink-2); }
+.hero-foot { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+/* KPI-tegels */
+.kpi-value { font-size: 26px; font-weight: 650; margin-top: 6px; letter-spacing: -0.01em; }
+.kpi-foot { color: var(--muted); font-size: 12px; margin-top: 4px; min-height: 18px; }
+
+/* Voortgangsbalk verliesgrens -> winstdoel */
+.range { position: relative; margin: 34px 4px 8px; height: 10px; }
+.range-track { position: absolute; inset: 0; border-radius: 5px; background: var(--grid); overflow: hidden; }
+.range-fill { position: absolute; top: 0; bottom: 0; }
+.range-start { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--axis); }
+.range-marker { position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); transform: translate(-50%, -50%); transition: left .4s; }
+.range-bubble { position: absolute; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 650; padding: 2px 8px; border-radius: 6px; white-space: nowrap; transition: left .4s; }
+.range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+.range-labels b { display: block; color: var(--ink); font-size: 14px; }
+.range-labels div:nth-child(2) { text-align: center; }
+.range-labels div:last-child { text-align: right; }
+.range-note { margin-top: 12px; font-size: 13px; color: var(--ink-2); }
+
+/* Grafieken */
+.chart { position: relative; height: 280px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .baseline { stroke: var(--axis); stroke-width: 1; }
+.chart .ref { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 4 4; }
+.chart .cross { stroke: var(--muted); stroke-width: 1; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend .tri { width: 0; height: 0; border-radius: 0; background: none; }
+.tooltip {
+  position: absolute; pointer-events: none; display: none; z-index: 5;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14); padding: 8px 10px; font-size: 12px; min-width: 150px;
+}
+.tooltip .t-head { color: var(--muted); margin-bottom: 4px; }
+.tooltip .t-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tooltip .t-row span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tooltip .t-row b { font-variant-numeric: tabular-nums; }
+.tooltip i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.empty-chart { height: 100%; display: grid; place-items: center; color: var(--muted); text-align: center; }
+
+/* Signaal */
+.sig-state { font-size: 20px; font-weight: 650; margin: 6px 0 4px; }
+.sig-reason { color: var(--ink-2); margin-bottom: 14px; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; font-size: 13px; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.kv hr { grid-column: 1 / -1; border: 0; border-top: 1px solid var(--grid); margin: 4px 0; width: 100%; }
+
+/* Tabel */
+.table-wrap { overflow-x: auto; margin: 0 -20px -18px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 20px; text-align: left; white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--grid); background: var(--chart-surface); }
+td { border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: 6px; }
+.badge.buy { color: var(--good-text); background: rgba(12, 163, 12, 0.10); }
+.badge.sell { color: var(--bad-text); background: rgba(208, 59, 59, 0.10); }
+.up-text { color: var(--good-text); font-weight: 600; }
+.down-text { color: var(--bad-text); font-weight: 600; }
+.muted { color: var(--muted); }
+
+.empty { text-align: center; padding: 60px 20px; }
+.empty h2 { margin: 0 0 8px; }
+.empty code { background: var(--page); padding: 3px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="brand"><span class="brand-mark">₿</span><span class="brand-text">Tradebot</span></div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-mode="live">Live</button>
+    <button class="tab" role="tab" data-mode="paper">Paper trading</button>
+  </nav>
+  <div class="nav-right">
+    <span class="updated" id="updated"></span>
+    <span class="pill" id="runPill"><span class="dot"></span><span id="runText">…</span></span>
+  </div>
+</header>
+
+<main id="app">
+  <div class="page-head">
+    <h1 id="title">Overzicht</h1>
+    <span class="sub" id="subtitle"></span>
+  </div>
+  <div class="banner" id="banner"></div>
+  <div id="content"></div>
+</main>
+
+<script>
+const params = new URLSearchParams(location.search);
+let mode = params.get('mode') || 'live';
+let last = null;
+
+const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
+const eur0 = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const num = (d) => new Intl.NumberFormat('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (v) => (v >= 0 ? '+' : '') + num(2).format(v) + '%';
+const time = (t) => new Date(t).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+const dateTime = (t) => new Date(t).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function deltaHtml(abs, rel, money = true) {
+  const cls = abs > 0.005 ? 'up' : abs < -0.005 ? 'down' : 'flat';
+  const arrow = cls === 'up' ? '▲' : cls === 'down' ? '▼' : '■';
+  const a = money ? (abs >= 0 ? '+' : '−') + eur.format(Math.abs(abs)) : '';
+  return `<span class="delta ${cls}"><span aria-hidden="true">${arrow}</span>${a} <span>(${pct(rel)})</span></span>`;
+}
+
+/* ------------------------------------------------------------ Lijngrafiek */
+// Asl-labels: decimalen als de stappen kleiner dan €1 zijn
+const axisEur = (v, step) => step < 1
+  ? new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(v)
+  : eur0.format(v);
+function niceTicks(min, max, count = 5) {
+  const span = max - min || 1;
+  const step0 = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= count) || 10 * mag;
+  const ticks = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) ticks.push(v);
+  return ticks;
+}
+
+function lineChart(el, opts) {
+  const { series, refs = [], markers = [], yFmt, area } = opts;
+  const pts = series.flatMap((s) => s.data.filter((d) => d[1] != null));
+  if (pts.length < 2) {
+    el.innerHTML = `<div class="empty-chart">${opts.emptyText || 'Nog te weinig data'}</div>`;
+    return;
+  }
+  const W = el.clientWidth, H = el.clientHeight;
+  const m = { l: 64, r: 16, t: 10, b: 26 };
+  const xs = pts.map((d) => d[0]);
+  let ys = pts.map((d) => d[1]).concat(refs.map((r) => r.v));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const pad = (y1 - y0) * 0.08 || Math.abs(y1) * 0.01 || 1;
+  y0 -= pad; y1 += pad;
+  const ticks = niceTicks(y0, y1, 4);
+  const X = (t) => m.l + ((t - x0) / (x1 - x0 || 1)) * (W - m.l - m.r);
+  const Y = (v) => m.t + (1 - (v - y0) / (y1 - y0)) * (H - m.t - m.b);
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">`;
+  ticks.forEach((v) => {
+    svg += `<line class="gridline" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/>`;
+    svg += `<text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yFmt(v, ticks[1] - ticks[0])}</text>`;
+  });
+  svg += `<line class="baseline" x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}"/>`;
+  const nX = Math.max(2, Math.floor((W - m.l - m.r) / 110));
+  const multiDay = x1 - x0 > 20 * 3600e3;
+  for (let i = 0; i <= nX; i++) {
+    const t = x0 + ((x1 - x0) * i) / nX;
+    const anchor = i === 0 ? 'start' : i === nX ? 'end' : 'middle';
+    svg += `<text x="${X(t)}" y="${H - 8}" text-anchor="${anchor}">${multiDay ? dateTime(t) : time(t)}</text>`;
+  }
+  refs.forEach((r) => {
+    svg += `<line class="ref" x1="${m.l}" x2="${W - m.r}" y1="${Y(r.v)}" y2="${Y(r.v)}"/>`;
+    svg += `<text x="${W - m.r}" y="${Y(r.v) - 5}" text-anchor="end">${esc(r.label)}</text>`;
+  });
+  series.forEach((s, si) => {
+    const d = s.data.filter((p) => p[1] != null);
+    const path = d.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+    if (area && si === 0) {
+      svg += `<defs><linearGradient id="g${el.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity="0.18"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient></defs>`;
+      svg += `<path d="${path}L${X(d[d.length - 1][0])},${H - m.b}L${X(d[0][0])},${H - m.b}Z" fill="url(#g${el.id})"/>`;
+    }
+    svg += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  markers.forEach((mk) => {
+    if (mk.t < x0 || mk.t > x1) return;
+    const cx = X(mk.t), cy = Y(mk.v), r = 7;
+    const tri = mk.side === 'buy'
+      ? `${cx},${cy + 3} ${cx - r},${cy + 3 + r * 1.6} ${cx + r},${cy + 3 + r * 1.6}`
+      : `${cx},${cy - 3} ${cx - r},${cy - 3 - r * 1.6} ${cx + r},${cy - 3 - r * 1.6}`;
+    svg += `<polygon points="${tri}" fill="${mk.side === 'buy' ? css('--good') : css('--bad')}" stroke="${css('--chart-surface')}" stroke-width="2"/>`;
+  });
+  svg += `<g id="hover${el.id}" style="display:none"><line class="cross" y1="${m.t}" y2="${H - m.b}"/>`;
+  series.forEach((s) => { svg += `<circle r="4.5" fill="${s.color}" stroke="${css('--chart-surface')}" stroke-width="2"/>`; });
+  svg += `</g><rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg>`;
+  svg += `<div class="tooltip"></div>`;
+  el.innerHTML = svg;
+
+  // Hover: kruisdraad + tooltip met alle reeksen op dat tijdstip
+  const base = series[0].data;
+  const g = el.querySelector(`#hover${el.id}`);
+  const tip = el.querySelector('.tooltip');
+  const rect = el.querySelector('rect');
+  const nearest = (data, t) => {
+    let lo = 0, hi = data.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; data[mid][0] < t ? (lo = mid) : (hi = mid); }
+    return Math.abs(data[lo][0] - t) < Math.abs(data[hi][0] - t) ? data[lo] : data[hi];
+  };
+  rect.addEventListener('mousemove', (e) => {
+    const bx = el.getBoundingClientRect();
+    const px = ((e.clientX - bx.left) / bx.width) * W;
+    const t = x0 + ((px - m.l) / (W - m.l - m.r)) * (x1 - x0);
+    const p = nearest(base, t);
+    g.style.display = '';
+    const line = g.querySelector('line');
+    line.setAttribute('x1', X(p[0])); line.setAttribute('x2', X(p[0]));
+    let rows = '';
+    g.querySelectorAll('circle').forEach((c, i) => {
+      const q = nearest(series[i].data, p[0]);
+      if (q[1] == null) { c.style.display = 'none'; return; }
+      c.style.display = '';
+      c.setAttribute('cx', X(q[0])); c.setAttribute('cy', Y(q[1]));
+      rows += `<div class="t-row"><span><i style="background:${series[i].color}"></i>${esc(series[i].name)}</span><b>${(opts.tipFmt || yFmt)(q[1])}</b></div>`;
+    });
+    const near = markers.find((mk) => Math.abs(X(mk.t) - X(p[0])) < 8);
+    if (near) rows += `<div class="t-row"><span>${near.side === 'buy' ? '▲ Gekocht' : '▼ Verkocht'}</span><b>${eur.format(near.v)}</b></div>`;
+    tip.innerHTML = `<div class="t-head">${dateTime(p[0])}</div>${rows}`;
+    tip.style.display = 'block';
+    const left = (X(p[0]) / W) * bx.width;
+    tip.style.left = Math.min(Math.max(left + 14, 0), bx.width - tip.offsetWidth) + 'px';
+    if (left + 14 + tip.offsetWidth > bx.width) tip.style.left = left - tip.offsetWidth - 14 + 'px';
+    tip.style.top = '8px';
+  });
+  rect.addEventListener('mouseleave', () => { g.style.display = 'none'; tip.style.display = 'none'; });
+}
+
+/* ---------------------------------------------------------------- Render */
+function render(d) {
+  last = d;
+  document.querySelectorAll('.tab').forEach((t) => {
+    t.setAttribute('aria-selected', t.dataset.mode === mode);
+  });
+  const s = d.status;
+  const pill = document.getElementById('runPill');
+  pill.className = 'pill ' + (d.running ? 'on' : 'off');
+  document.getElementById('runText').textContent = d.running ? 'Bot actief' : 'Bot gestopt';
+  document.getElementById('updated').textContent = s ? 'Bijgewerkt ' + new Date(s.updated).toLocaleTimeString('nl-NL') : '';
+  document.getElementById('title').textContent = mode === 'live' ? 'Live portefeuille' : 'Paper trading (nep-geld)';
+  document.getElementById('subtitle').textContent = `${d.market} · candles van ${d.interval}`;
+  document.title = s ? `${eur.format(s.value)} · Tradebot` : 'Tradebot Dashboard';
+
+  const banner = document.getElementById('banner');
+  if (s && s.stopped) {
+    banner.className = 'banner show';
+    banner.innerHTML = `<b>De bot is gestopt:</b> ${esc(s.stopped)}`;
+  } else banner.className = 'banner';
+
+  const content = document.getElementById('content');
+  if (!s) {
+    const cmd = mode === 'live' ? 'python bot.py live' : 'python bot.py run';
+    content.innerHTML = `<div class="card empty"><h2>Nog geen data</h2><p class="muted">Start de bot in de terminal met <code>${cmd}</code>. Dit dashboard ververst vanzelf.</p></div>`;
+    return;
+  }
+
+  const pnl = s.value - s.start;
+  const pnlPct = (pnl / s.start) * 100;
+  const inPos = s.coins > 0;
+  const posPnl = inPos && s.entry_price ? (s.bid / s.entry_price - 1) * 100 : null;
+  const hist = d.history;
+  const firstPrice = d.candles.length ? d.candles[0][1] : (hist[0] || [0, s.price])[1];
+  const priceChg = firstPrice ? (s.price / firstPrice - 1) * 100 : 0;
+  const totalSells = d.wins + d.losses;
+  const winrate = totalSells ? Math.round((d.wins / totalSells) * 100) : null;
+  const base = d.market.split('-')[0];
+
+  let rangeCard = '';
+  if (s.floor != null && s.target != null) {
+    const pos = (v) => Math.min(100, Math.max(0, ((v - s.floor) / (s.target - s.floor)) * 100));
+    const startPos = pos(s.start), cur = pos(s.value);
+    const fillFrom = Math.min(startPos, cur), fillTo = Math.max(startPos, cur);
+    const color = s.value >= s.start ? css('--good') : css('--bad');
+    rangeCard = `
+      <div class="card span-5">
+        <div class="card-title">Op weg naar je doel</div>
+        <div class="card-sub">De bot verkoopt alles en stopt bij een van beide grenzen</div>
+        <div class="range">
+          <div class="range-track"><div class="range-fill" style="left:${fillFrom}%;width:${fillTo - fillFrom}%;background:${color}"></div></div>
+          <div class="range-start" style="left:${startPos}%"></div>
+          <div class="range-bubble" style="left:${cur}%">${eur.format(s.value)}</div>
+          <div class="range-marker" style="left:${cur}%"></div>
+        </div>
+        <div class="range-labels">
+          <div>▼ Verliesgrens<b>${eur0.format(s.floor)}</b></div>
+          <div>Start<b>${eur0.format(s.start)}</b></div>
+          <div>Winstdoel ▲<b>${eur0.format(s.target)}</b></div>
+        </div>
+        <div class="range-note">Nog <b>${eur.format(Math.max(0, s.target - s.value))}</b> tot het winstdoel · <b>${eur.format(Math.max(0, s.value - s.floor))}</b> boven de verliesgrens</div>
+      </div>`;
+  } else {
+    rangeCard = `
+      <div class="card span-5">
+        <div class="card-title">Paper trading</div>
+        <div class="card-sub">Nep-geld op echte koersen, inclusief 0,25% kosten per trade</div>
+        <p class="muted">Hier test je de strategie zonder risico. Gaat dit een tijd goed, dan kun je live gaan met <code>python bot.py live</code>.</p>
+      </div>`;
+  }
+
+  let signal, sigReason = s.reason.startsWith('wachten (') ? 'Geen actie nodig op dit moment' : s.reason;
+  if (s.fast_sma == null || s.slow_sma == null) signal = 'Data verzamelen';
+  else if (inPos) signal = s.fast_sma > s.slow_sma ? 'In positie · trend omhoog' : 'In positie · trend zwakt af';
+  else signal = s.fast_sma > s.slow_sma ? 'Trend omhoog · wacht op nieuw koopsignaal' : 'Trend omlaag · wacht op kruising';
+  const sl = inPos && s.stop_loss != null ? s.entry_price * (1 - s.stop_loss) : null;
+  const tp = inPos && s.take_profit != null ? s.entry_price * (1 + s.take_profit) : null;
+
+  const trades = d.trades.slice().reverse().slice(0, 12);
+  const tradeRows = trades.length ? trades.map((t) => {
+    const buy = t.kant === 'buy';
+    const w = parseFloat(t['winst_%'] || 0);
+    return `<tr>
+      <td>${esc(dateTime(t.tijd))}</td>
+      <td><span class="badge ${buy ? 'buy' : 'sell'}">${buy ? '▲ Koop' : '▼ Verkoop'}</span></td>
+      <td class="num">${eur.format(parseFloat(t.prijs))}</td>
+      <td class="num">${eur.format(parseFloat(t.eur))}</td>
+      <td class="num">${eur.format(parseFloat(t.kosten))}</td>
+      <td class="num">${buy ? '<span class="muted">–</span>' : `<span class="${w >= 0 ? 'up-text' : 'down-text'}">${w >= 0 ? '▲' : '▼'} ${pct(w)}</span>`}</td>
+      <td class="muted">${esc(t.reden)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" class="muted" style="text-align:center;padding:28px">Nog geen trades. De bot koopt pas bij een nieuw signaal; dat kan uren duren.</td></tr>`;
+
+  content.innerHTML = `
+  <div class="grid">
+    <div class="card span-7">
+      <div class="label">Portefeuillewaarde</div>
+      <div class="hero-value">${eur.format(s.value)}</div>
+      ${deltaHtml(pnl, pnlPct)} <span class="muted">sinds start (${eur.format(s.start)})</span>
+      <div class="hero-foot">${eur.format(s.eur)} in euro's${inPos ? ` · ${num(8).format(s.coins)} ${base}` : ''}</div>
+    </div>
+    ${rangeCard}
+
+    <div class="card span-3">
+      <div class="label">${base}-koers</div>
+      <div class="kpi-value">${eur0.format(s.price)}</div>
+      <div class="kpi-foot">${deltaHtml(s.price - firstPrice, priceChg, false)} afgelopen 2 dagen</div>
+    </div>
+    <div class="card span-3">
+      <div class="label">Positie</div>
+      <div class="kpi-value">${inPos ? 'In ' + base : 'In euro\'s'}</div>
+      <div class="kpi-foot">${inPos ? `Gekocht @ ${eur0.format(s.entry_price)} · ${deltaHtml(0.01 * Math.sign(posPnl || 0), posPnl || 0, false)}` : 'Wacht op koopsignaal'}</div>
+    </div>
+    <div class="card span-3">
+      <div class="label">Trades</div>
+      <div class="kpi-value">${s.trades}</div>
+      <div class="kpi-foot">${totalSells ? `${d.wins} winst · ${d.losses} verlies · ${winrate}% raak` : 'Nog geen afgeronde trades'}</div>
+    </div>
+    <div class="card span-3">
+      <div class="label">Betaalde kosten</div>
+      <div class="kpi-value">${eur.format(s.fees_paid)}</div>
+      <div class="kpi-foot">${num(1).format((s.fees_paid / s.start) * 100)}% van je startbedrag</div>
+    </div>
+
+    <div class="card span-6">
+      <div class="card-title">Portefeuillewaarde</div>
+      <div class="card-sub">Sinds de bot draait · stippellijn = startbedrag</div>
+      <div class="chart" id="cv"></div>
+    </div>
+    <div class="card span-6">
+      <div class="card-title">${d.market}</div>
+      <div class="legend">
+        <span><i style="background:${css('--series-1')}"></i>Koers</span>
+        <span><i style="background:${css('--series-2')}"></i>Snel gem. (${s.fast_n})</span>
+        <span><i style="background:${css('--series-3')}"></i>Traag gem. (${s.slow_n})</span>
+        <span>▲ koop · ▼ verkoop</span>
+      </div>
+      <div class="chart" id="cp"></div>
+    </div>
+
+    <div class="card span-4">
+      <div class="label">Strategie-signaal</div>
+      <div class="sig-state">${esc(signal)}</div>
+      <div class="sig-reason">${esc(sigReason)}</div>
+      <dl class="kv">
+        <dt>Snel gemiddelde (${s.fast_n})</dt><dd>${s.fast_sma != null ? eur.format(s.fast_sma) : '–'}</dd>
+        <dt>Traag gemiddelde (${s.slow_n})</dt><dd>${s.slow_sma != null ? eur.format(s.slow_sma) : '–'}</dd>
+        <hr>
+        <dt>Bied / laat</dt><dd>${eur0.format(s.bid)} / ${eur0.format(s.ask)}</dd>
+        ${sl ? `<dt>Stop-loss bij</dt><dd>${eur0.format(sl)}</dd>` : ''}
+        ${tp ? `<dt>Take-profit bij</dt><dd>${eur0.format(tp)}</dd>` : ''}
+      </dl>
+    </div>
+    <div class="card span-8">
+      <div class="card-title">Recente trades</div>
+      <div class="card-sub">Laatste ${trades.length} van ${d.trades.length}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tijd</th><th>Soort</th><th class="num">Prijs</th><th class="num">Bedrag</th><th class="num">Kosten</th><th class="num">Resultaat</th><th>Reden</th></tr></thead>
+        <tbody>${tradeRows}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+
+  drawCharts();
+}
+
+function drawCharts() {
+  const d = last, s = d && d.status;
+  if (!s) return;
+  const cv = document.getElementById('cv'), cp = document.getElementById('cp');
+  if (!cv) return;
+  lineChart(cv, {
+    label: 'Portefeuillewaarde over tijd',
+    series: [{ name: 'Waarde', color: css('--series-1'), data: d.history.map((h) => [h[0], h[2]]) }],
+    refs: [{ v: s.start, label: 'Start ' + eur0.format(s.start) }],
+    yFmt: axisEur, tipFmt: (v) => eur.format(v), area: true,
+    emptyText: 'De lijn verschijnt na een paar minuten draaien',
+  });
+  const c = d.candles.length ? d.candles : d.history.map((h) => [h[0], h[1], null, null]);
+  const markers = d.trades.map((t) => ({ t: Date.parse(t.tijd), v: parseFloat(t.prijs), side: t.kant }));
+  lineChart(cp, {
+    label: `${d.market} koers met gemiddelden`,
+    series: [
+      { name: 'Koers', color: css('--series-1'), data: c.map((x) => [x[0], x[1]]) },
+      { name: `Snel gem.`, color: css('--series-2'), data: c.map((x) => [x[0], x[2]]), width: 1.5 },
+      { name: `Traag gem.`, color: css('--series-3'), data: c.map((x) => [x[0], x[3]]), width: 1.5 },
+    ],
+    markers,
+    yFmt: axisEur, tipFmt: (v) => eur.format(v),
+  });
+}
+
+async function refresh() {
+  try {
+    const r = await fetch(`/api/data?mode=${mode}`, { cache: 'no-store' });
+    render(await r.json());
+  } catch (e) {
+    document.getElementById('runText').textContent = 'Geen verbinding';
+    document.getElementById('runPill').className = 'pill off';
+  }
+}
+
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+  mode = t.dataset.mode;
+  history.replaceState(null, '', `?mode=${mode}`);
+  refresh();
+}));
+let rs;
+window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(drawCharts, 120); });
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

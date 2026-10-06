@@ -28,6 +28,10 @@ TAKE_PROFIT = 0.06
 # Hoe vaak de bot kijkt (seconden)
 POLL_SECONDS = 60
 
+# Dashboard: opent automatisch in je browser bij 'run' en 'live'
+DASHBOARD = True
+DASHBOARD_PORT = 8050
+
 # Bestanden
 STATE_FILE = "paper_state.json"
 TRADES_FILE = "trades.csv"

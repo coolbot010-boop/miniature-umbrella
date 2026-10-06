@@ -118,6 +118,7 @@ class LiveLoopTest(unittest.TestCase):
                 mock.patch.object(live.time, "sleep", sleep), \
                 mock.patch.object(config, "OPERATOR_ID", 1001), \
                 mock.patch.object(builtins, "input", return_value="ja"), \
+                mock.patch.object(config, "DASHBOARD", False), \
                 mock.patch("builtins.print"):
             try:
                 live.cmd_live()
